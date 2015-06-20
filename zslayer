@@ -1,0 +1,63 @@
+#!/bin/bash
+
+##########################################################
+#                                                        #
+#  Zombie Slayer v0.1                                    #
+#                                                        #
+#  This bash script... well if you don't know then I     #
+#  guess that's your fault and you've got some google    #
+#  searches ahead of you.                                #
+#                                                        #
+##########################################################
+
+
+# Misc. test servers and processes
+declare -A servers
+servers[tom]='nginx init test1'
+servers[popeye]='test0 test1 test2'
+
+SERVER=$(uname -n)
+
+# First find parents a.k.a. Zombie Spawning Pits
+for z in $(ps aux|grep php|awk '{printf  $2":"$8;printf "\n";}');
+do
+    IFS=':' read -a info <<< "$z"
+    ZOMBIE=${info[0]}
+    STATUS=${info[1]}
+    PARENT=$(ps -f $ZOMBIE | tail -n +2|awk '{print $3}')
+    if [ "$PARENT" == "1" ] && [ "$STATUS" == "Z" ]
+    then
+        sudo kill -9 $ZOMBIE
+    fi
+done
+
+# Make sure there's no stragglers
+for z in $(ps aux|grep php|awk '{printf  $2":"$8;printf "\n";}');
+do
+    IFS=':' read -a info <<< "$z"
+    ZOMBIE=${info[0]}
+    STATUS=${info[1]}
+    if [ "$STATUS" == "Z" ]
+    then
+        sudo kill -9 $ZOMBIE
+    fi
+done
+
+# Now make sure good tasks are still running
+for t in ${servers[$SERVER]};
+do
+    RUNNING='nope'
+    TEST=$(ps aux|grep $t|awk '{print $2}')
+    for p in ${TEST};
+    do
+        TPARENT=$(ps -f $p|tail -n +2|awk '{print $3}')
+        if [ "$TPARENT" == "1" ] || [ "$TPARENT" == "0" ]
+        then
+            RUNNING='yup'
+        fi
+    done
+    if [ "$RUNNING" != "yup" ]
+    then
+        sudo /etc/init.d/$t restart
+    fi
+done
